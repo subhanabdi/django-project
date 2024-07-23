@@ -18,22 +18,30 @@ from django.urls import reverse
 from django.shortcuts import redirect
 from django.views.generic.edit import FormView
 from .forms import InviteUserForm
+from .utils import generate_invite_token
+from rest_framework_simplejwt.tokens import UntypedToken
+from rest_framework.exceptions import AuthenticationFailed
+
 
 class MyMixin(LoginRequiredMixin, UserPassesTestMixin):
     """ Mixin for Authentication and User is Admin or not """
     def test_func(self):
         return self.request.user.user_type == 'admin'
 
+
 class InviteUserView(MyMixin, FormView):
     form_class = InviteUserForm
     template_name = 'users/invite.html'
-    
+
     def form_valid(self, form):
         email = form.cleaned_data['email']
         user_type = form.cleaned_data['user_type']
         
-        # Generate registration link with a query parameter for user type
-        register_url = self.request.build_absolute_uri(reverse('user_app:register')) + f'?user_type={user_type}'
+        # Generate token
+        token = generate_invite_token(email)
+        
+        # Generate registration link with token and user type
+        register_url = self.request.build_absolute_uri(reverse('user_app:register')) + f'?token={token}&user_type={user_type}'
         
         # Send email
         send_mail(
@@ -46,10 +54,6 @@ class InviteUserView(MyMixin, FormView):
         
         messages.success(self.request, f'Invitation sent to {email}.')
         return redirect(reverse('user_app:invite'))
-
-  
-
-
 
 
 class CustomPasswordResetConfirmView(PasswordResetConfirmView):
@@ -64,10 +68,10 @@ class CustomPasswordResetConfirmView(PasswordResetConfirmView):
         return super().form_valid(form)
 
 
-
 class CustomLogoutView(LogoutView):
     def get_next_page(self):
         return reverse_lazy('user_app:home') 
+
 
 class CustomPasswordResetView(PasswordResetView):
     form_class = CustomPasswordResetForm
@@ -77,10 +81,12 @@ class CustomPasswordResetView(PasswordResetView):
     success_url = reverse_lazy('user_app:password_reset_done')
     template_name = 'users/password_reset.html'
 
+
 class MyMixin(LoginRequiredMixin, UserPassesTestMixin):
     """ Mixin for Authentication and User is Admin or not """
     def test_func(self):
         return self.request.user.user_type == 'admin'
+
 
 @login_required()
 def home(request):
@@ -94,6 +100,7 @@ def home(request):
     return render(request, 'users/home.html', context)
 
 
+
 class UserRegistrationView(CreateView):
     """ New User Registration """
     model = MyUser
@@ -101,22 +108,40 @@ class UserRegistrationView(CreateView):
     template_name = 'users/register.html'
     success_url = reverse_lazy('user_app:home')
 
+    def get(self, request, *args, **kwargs):
+        token = request.GET.get('token')
+        user_type = request.GET.get('user_type')
+        if token and user_type:
+            try:
+                UntypedToken(token)  # Validate token
+            except AuthenticationFailed:
+                messages.error(request, 'The registration link has expired.')
+                return redirect(reverse_lazy('user_app:invite'))
+        else:
+            messages.error(request, 'Invalid registration link.')
+            return redirect(reverse_lazy('user_app:invite'))
+
+        return super().get(request, *args, **kwargs)
+
     def form_valid(self, form):
         user = form.save(commit=False)
         password = form.cleaned_data['password']
         user.set_password(password)
+        
+        # Set user_type from the URL parameter
+        user_type = self.request.GET.get('user_type')
+        user.user_type = user_type
+        
         messages.success(self.request, f"{user.username} is created successfully!")
         user.save()
         return redirect(reverse_lazy('user_app:home'))
+
 
 class UserListView(MyMixin, ListView):
     """ List of Users for Admin """
     model = MyUser
     template_name = 'users/list.html'
     context_object_name = 'data'
-    
-
-   
 
 
 class UserCreateView(MyMixin, CreateView):
@@ -134,6 +159,7 @@ class UserCreateView(MyMixin, CreateView):
         user.save()
         return redirect(reverse_lazy('user_app:list'))
 
+
 class UserUpdateView(MyMixin, UpdateView):
     """ Update a user by Admin """
     model = MyUser
@@ -146,6 +172,7 @@ class UserUpdateView(MyMixin, UpdateView):
         messages.success(self.request, f"user is updated successfully!")
         return redirect(reverse_lazy('user_app:list'))
 
+
 class UserDeleteView(MyMixin, DeleteView):
     """ Delete a user by Admin """
     model = MyUser
@@ -156,6 +183,7 @@ class UserDeleteView(MyMixin, DeleteView):
         super(UserDeleteView, self).form_valid(form)
         messages.warning(self.request, f"user is deleted successfully!")
         return redirect(reverse_lazy('user_app:list'))
+
 
 class UserProfile(LoginRequiredMixin, UpdateView):
     """ All User Profile Page """

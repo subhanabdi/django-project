@@ -5,6 +5,7 @@ from django.db import models
 from PIL import Image
 import sys
 
+
 class MyUser(AbstractUser):
     """ User Model with Abstract User"""
     city = models.CharField(max_length=255)
