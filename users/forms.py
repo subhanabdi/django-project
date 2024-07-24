@@ -1,5 +1,5 @@
 from django import forms
-from django.contrib.auth.forms import PasswordResetForm
+from django.contrib.auth.forms import PasswordResetForm, SetPasswordForm
 from django.contrib.auth.tokens import default_token_generator
 from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
@@ -7,7 +7,6 @@ from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
 from django.contrib.sites.shortcuts import get_current_site
 from users.models import MyUser, Profile
-
 
 class CustomPasswordResetForm(PasswordResetForm):
     email = forms.EmailField(
@@ -65,7 +64,6 @@ class CustomPasswordResetForm(PasswordResetForm):
                 user.email, html_email_template_name=html_email_template_name,
             )
 
-
 class UserCreateForm(forms.ModelForm):
     """ User Create or Registration Form """
     class Meta:
@@ -79,7 +77,6 @@ class UserCreateForm(forms.ModelForm):
             'password': forms.PasswordInput(attrs={'class': 'form-control'}),
             'city': forms.TextInput(attrs={'class': 'form-control'}),
         }
-
 
 class UserUpdateForm(forms.ModelForm):
     """ User Update Form by Admin """
@@ -95,7 +92,6 @@ class UserUpdateForm(forms.ModelForm):
             'user_type': forms.Select(attrs={'class': 'form-control'}),
         }
 
-
 class CustomerUpdateForm(forms.ModelForm):
     """ User Update Form for Customer """
     class Meta:
@@ -109,7 +105,6 @@ class CustomerUpdateForm(forms.ModelForm):
             'city': forms.TextInput(attrs={'class': 'form-control'}),
         }
 
-
 class CustomerProfileForm(forms.ModelForm):
     """ User profile photo form """
     class Meta:
@@ -118,7 +113,6 @@ class CustomerProfileForm(forms.ModelForm):
         widgets = {
             'image': forms.FileInput(attrs={'class': 'form-control'}),
         }
-
 
 class InviteUserForm(forms.Form):
     email = forms.EmailField(label='Email')
